@@ -1,5 +1,49 @@
+import tcod
+
+from actions import EscapeAction, MovementAction
+from input_handlers import EventHandler
+
+
 def main():
-    print("Hello from python-rougelike!")
+    screen_width = 80
+    screen_height = 50
+
+    player_x = int(screen_width / 2)
+    player_y = int(screen_height / 2)
+
+    tileset = tcod.tileset.load_tilesheet(
+        "dejavu10x10_gs_tc.png", 32, 8, tcod.tileset.CHARMAP_TCOD
+    )
+
+    event_handler = EventHandler()
+
+    # screen
+    with tcod.context.new(
+        width=screen_width,
+        height=screen_height,
+        tileset=tileset,
+        title="Python Rougelike",
+        vsync=True,
+    ) as context:
+        # console
+        root_console = tcod.console.Console(screen_width, screen_height, order="F")
+        while True:
+            root_console.print(x=player_x, y=player_y, text="@")
+            context.present(root_console)
+
+            root_console.clear()
+
+            for event in tcod.event.wait():
+                action = event_handler.dispatch(event)
+
+                if action is None:
+                    continue
+
+                if isinstance(action, MovementAction):
+                    player_x += action.dx
+                    player_y += action.dy
+                elif isinstance(action, EscapeAction):
+                    raise SystemExit()
 
 
 if __name__ == "__main__":
