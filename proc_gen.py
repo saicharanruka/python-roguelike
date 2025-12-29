@@ -2,6 +2,7 @@ import tcod
 import random
 from typing import Iterator, Tuple, List
 
+import entity_factories
 from game_map import GameMap
 import tile_types
 
@@ -39,19 +40,18 @@ class RectangularRoom:
         )
 
 
-# def generate_dungeon(map_width: int, map_height: int) -> GameMap:
-#     dungeon = GameMap(map_width, map_height)
+def place_entities(room: RectangularRoom, dungeon: GameMap, max_monsters: int) -> None:
+    no_of_monsters = random.randint(1, max_monsters)
 
-#     room1 = RectangularRoom(x=20, y=10, width=10, height=15)
-#     room2 = RectangularRoom(x=35, y=15, width=10, height=15)
+    for i in range(no_of_monsters):
+        x = random.randint(room.x1 + 1, room.x2 - 1)
+        y = random.randint(room.y1 + 1, room.y2 - 1)
 
-#     dungeon.tiles[room1.inner] = tile_types.floor
-#     dungeon.tiles[room2.inner] = tile_types.floor
-
-#     for x, y in tunnel_between(room2.center, room1.center):
-#         dungeon.tiles[x, y] = tile_types.floor
-
-#     return dungeon
+        if not any(entity.x == x and entity.y == y for entity in dungeon.entities):
+            if random.random() < 0.8:
+                entity_factories.orc.spawn(dungeon, x, y)
+            else:
+                entity_factories.troll.spawn(dungeon, x, y)
 
 
 def generate_dungeon(
@@ -61,6 +61,7 @@ def generate_dungeon(
     map_width: int,
     map_height: int,
     player: Entity,
+    max_monsters_per_room: int,
 ) -> GameMap:
     """Generate a new dungeon map."""
     dungeon = GameMap(map_width, map_height, entities=[player])
@@ -88,6 +89,7 @@ def generate_dungeon(
             for x, y in tunnel_between(rooms[-1].center, new_room.center):
                 dungeon.tiles[x, y] = tile_types.floor
 
+        place_entities(new_room, dungeon, max_monsters_per_room)
         rooms.append(new_room)
 
     return dungeon
