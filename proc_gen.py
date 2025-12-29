@@ -1,13 +1,13 @@
 import tcod
 import random
-from typing import Iterator, Tuple, List
+from typing import Iterator, Tuple, List, TYPE_CHECKING
 
 import entity_factories
 from game_map import GameMap
 import tile_types
 
 # if TYPE_CHECKING:
-from entity import Entity
+from engine import Engine
 
 
 class RectangularRoom:
@@ -60,11 +60,12 @@ def generate_dungeon(
     room_max_size: int,
     map_width: int,
     map_height: int,
-    player: Entity,
+    engine: Engine,
     max_monsters_per_room: int,
 ) -> GameMap:
     """Generate a new dungeon map."""
-    dungeon = GameMap(map_width, map_height, entities=[player])
+    player = engine.player
+    dungeon = GameMap(engine, map_width, map_height, entities=[player])
     rooms: List[RectangularRoom] = []
 
     for r in range(max_rooms):
@@ -84,7 +85,7 @@ def generate_dungeon(
         dungeon.tiles[new_room.inner] = tile_types.floor
 
         if len(rooms) == 0:
-            player.x, player.y = new_room.center
+            player.place(*new_room.center, dungeon)
         else:
             for x, y in tunnel_between(rooms[-1].center, new_room.center):
                 dungeon.tiles[x, y] = tile_types.floor
