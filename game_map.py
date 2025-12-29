@@ -1,12 +1,18 @@
+from typing import Iterable
 import numpy as np
 from tcod.console import Console
 
+
+from entity import Entity
 import tile_types
 
 
 class GameMap:
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(
+        self, width: int, height: int, entities: Iterable[Entity] = ()
+    ) -> None:
         self.width, self.height = width, height
+        self.entities = set(entities)
         self.tiles = np.full((width, height), fill_value=tile_types.wall, order="F")
 
         self.visible = np.full((width, height), fill_value=False, order="F")
@@ -29,3 +35,8 @@ class GameMap:
             choicelist=[self.tiles["light"], self.tiles["dark"]],
             default=tile_types.SHROUD,  # type: ignore
         )  # type: ignore
+
+        for entity in self.entities:
+            # Only print if in FOV
+            if self.visible[entity.x, entity.y]:
+                console.print(x=entity.x, y=entity.y, text=entity.char, fg=entity.color)
