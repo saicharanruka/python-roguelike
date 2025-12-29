@@ -9,7 +9,7 @@ from tcod.map import compute_fov
 from input_handlers import EventHandler
 
 if TYPE_CHECKING:
-    from entity import Entity
+    from entity import Actor
     from game_map import GameMap
 
 
@@ -18,15 +18,15 @@ class Engine:
 
     def __init__(
         self,
-        player: Entity,
+        player: Actor,
     ) -> None:
         self.event_handler = EventHandler(self)
         self.player = player
 
     def handle_enemy_turns(self) -> None:
-        for entity in self.game_map.entities - {self.player}:
-            # print(f"The {entity.name} wonders when it will get to take a turn itself")
-            pass
+        for entity in set(self.game_map.actors) - {self.player}:
+            if entity.ai:
+                entity.ai.perform()
 
     def update_fov(self) -> None:
         """Compute the visible area based of player's FOV"""
