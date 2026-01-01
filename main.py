@@ -1,5 +1,6 @@
 import copy
 import tcod
+import color
 
 from engine import Engine
 import entity_factories
@@ -11,7 +12,7 @@ def main():
     screen_height = 50
 
     map_width = 80
-    map_height = 45
+    map_height = 43
 
     room_max_size = 10
     room_min_size = 6
@@ -36,6 +37,8 @@ def main():
         engine=engine,
     )
     engine.update_fov()
+
+    engine.message_log.add_message("Hello and welcome adventurer!", color.welcome_text)
 
     # screen
     with tcod.context.new(
