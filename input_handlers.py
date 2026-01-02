@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
+from tcod.console import Console
 import tcod.event
 
 from actions import Action, EscapeAction, BumpAction, WaitAction
+# from engine import Engine
 
 if TYPE_CHECKING:
     from engine import Engine
@@ -49,16 +51,32 @@ class EventHandler(tcod.event.EventDispatch[Action]):
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
-    def handle_events(self) -> None:
-        raise NotImplementedError()
+    def handle_events(self, context: tcod.context.Context) -> None:
+        for event in tcod.event.wait():
+            context.convert_event(event)
+            self.dispatch(event)
+
+    def ev_mousemotion(self, event: tcod.event.MouseMotion) -> Action | None:
+        if self.engine.game_map.in_bounds(
+            event.tile.x,  # type: ignore
+            event.tile.y,  # type: ignore
+        ):  # TODO: Change this deprecated
+            self.engine.mouse_location = (int(event.tile.x), int(event.tile.y))  # type: ignore
 
     def ev_quit(self, event: tcod.event.Quit) -> Optional[Action]:
         raise SystemExit()
 
+    def on_render(
+        self,
+        console: tcod.console.Console,
+    ):
+        self.engine.render(console)
+
 
 class MainGameEventHandler(EventHandler):
-    def handle_events(self) -> None:
+    def handle_events(self, context: tcod.context.Context) -> None:
         for event in tcod.event.wait():
+            context.convert_event(event)
             action = self.dispatch(event)
 
             if action is None:
@@ -81,12 +99,14 @@ class MainGameEventHandler(EventHandler):
             action = WaitAction(player)
         elif key == tcod.event.KeySym.ESCAPE:
             action = EscapeAction(player)
+        elif key == tcod.event.KeySym.V:
+            self.engine.event_handler = HistoryViewer(self.engine)
 
         return action
 
 
 class GameOverEventHandler(EventHandler):
-    def handle_events(self) -> None:
+    def handle_events(self, context: tcod.context.Context) -> None:
         for event in tcod.event.wait():
             action = self.dispatch(event)
 
@@ -102,3 +122,64 @@ class GameOverEventHandler(EventHandler):
             action = EscapeAction(self.engine.player)
 
         return action
+
+
+CURSOR_Y_KEYS = {
+    tcod.event.KeySym.UP: -1,
+    tcod.event.KeySym.DOWN: 1,
+    tcod.event.KeySym.PAGEUP: -10,
+    tcod.event.KeySym.PAGEDOWN: 10,
+}
+
+
+class HistoryViewer(EventHandler):
+    """Print the history on a larger window which can be navigated"""
+
+    def __init__(self, engine: Engine) -> None:
+        super().__init__(engine)
+        self.log_length = len(engine.message_log.messages)
+        self.cursor = self.log_length - 1
+
+    def on_render(self, console: Console):
+        super().on_render(console)
+        log_console = tcod.console.Console(console.width - 6, console.height - 6)
+
+        # Draw a frame with a custom banner title
+        log_console.draw_frame(0, 0, log_console.width, log_console.height)
+        log_console.print_box(
+            0,
+            0,
+            log_console.width,
+            1,
+            "-|Message History|-",
+            alignment=tcod.constants.CENTER,
+        )
+        self.engine.message_log.render_messages(
+            log_console,
+            1,
+            1,
+            log_console.width - 2,
+            log_console.height - 2,
+            self.engine.message_log.messages[: self.cursor + 1],
+        )
+
+        log_console.blit(console, 3, 3)
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Action | None:
+        if event.sym in CURSOR_Y_KEYS:
+            adjust = CURSOR_Y_KEYS[event.sym]
+            if adjust < 0 and self.cursor == 0:
+                # Only move from top to bottom when you're on edge
+                self.cursor = self.log_length - 1
+            elif adjust > 0 and self.cursor == self.log_length - 1:
+                # Same with bottom to top
+                self.cursor = 0
+            else:
+                # Otherwise move while staying clamped to the bounds of the history log
+                self.cursor = max(0, min(self.cursor + adjust, self.log_length - 1))
+        elif event.sym == tcod.event.KeySym.HOME:
+            self.cursor = 0
+        elif event.sym == tcod.event.KeySym.END:
+            self.cursor = self.log_length - 1
+        else:
+            self.engine.event_handler = MainGameEventHandler(self.engine)
